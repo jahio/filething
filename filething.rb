@@ -12,43 +12,62 @@
 require 'rubygems'
 require 'bundler/setup'
 require 'pry'
+require 'async'
 
-exts = { m4v: 0, mkv: 0, mp4: 0, avi: 0 }
+@exts = { m4v: 0, mkv: 0, mp4: 0, avi: 0 }
+@index = { m4v: [], mkv: [], mp4: [], avi: [] }
 
 # If ARGV[0] is a path, look there; otherwise look in
 # the user's current directory
-if ARGV.count > 0
-  loc = ARGV[0]
-  puts "Looking for files in ${loc}..."
+if ARGV.count > 0 && ARGV[0].length > 1 && Dir.exist?(ARGV[0])
+  @loc = ARGV[0]
 else
-  loc = ENV['PWD']
+  @loc = ENV['PWD']
 end
 
 # If any extensions after the location, add those to
 # the extensions
 if ARGV.count > 1 && ARGV[1..-1].count > 0
   ARGV[1..-1].each do |x|
-    unless exts.keys.include?(x)
+    unless @exts.keys.include?(x)
       k = x.sub(/\./, '')
-      exts[:"#{k}"] = 0
+      @exts[:"#{k}"] = 0
+      @index[:"#{k}"] = []
     end
   end
 end
 
-# Check to make sure the dir in question exits
-unless Dir.exist?(loc)
-  puts "Directory does not exist: #{loc}"
-  exit 1
+def findEm(ext)
+  files = Dir.glob("#{@loc}/**/*.#{ext.to_s.sub(/\./, '')}")
+  @exts[ext] = files.count
+  @index[ext] << files
+  @index[ext].flatten!.uniq!
 end
 
-# Output information about what we're going to try here
+# Glob all the files recursively...
+@exts.keys.each do |e|
+  Async do
+    findEm(e)
+  end
+end
+
 puts <<~EOF
-  Search path: #{loc}
-  Extensions: #{exts.keys.join(', ')}
+  REPORT:
+  =======
+  Directory Searched:   #{@loc}
+  For files ending in:  #{@exts.keys.join(',')}
+
 EOF
 
-# Glob all the files recursively...
-# files = Dir.glob["#{loc}/**/*.#{exts.keys.join(',')}"]
-files = Dir.glob("#{loc}/**/*[.#{exts.keys.join(',.')}]")
+@exts.keys.each do |e|
+  puts <<~EOF
+    #{e}:          #{@exts[e]}
+  EOF
+end
 
-binding.pry
+puts <<~EOF
+  Be advised: Other files beyond the above likely do exist in the searched
+  directory.
+
+  END OF REPORT
+EOF
