@@ -1,0 +1,4 @@
+PassengerFile.json
+.DS_Store
+tmp/*
+log/*
