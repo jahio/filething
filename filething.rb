@@ -16,6 +16,7 @@ require 'async'
 
 @exts = { m4v: 0, mkv: 0, mp4: 0, avi: 0 }
 @index = { m4v: [], mkv: [], mp4: [], avi: [] }
+@paths = {}
 
 # If ARGV[0] is a path, look there; otherwise look in
 # the user's current directory
@@ -42,6 +43,11 @@ def findEm(ext)
   @exts[ext] = files.count
   @index[ext] << files
   @index[ext].flatten!.uniq!
+  # File.dirname(@index[:mp4][0]).sub(/#{ENV["PWD"]}/, '')
+  # Update the @paths variable so we can get a full, clear accounting of what's where
+#   files.each do |f|
+#     @paths[File.dirname(f).sub(/#{@loc}/, '').to_sym]
+#   end
 end
 
 # Glob all the files recursively...
@@ -49,13 +55,27 @@ end
   Async do
     findEm(e)
   end
+  Async do
+    @exts.keys.each do |ext|
+      @index[ext].each do |f|
+        d = File.dirname(f.sub(/#{@loc}/, '')).sub(/\//, '')
+        if @paths[d.to_sym].nil?
+          @paths[d.to_sym] = { files: [] }
+        end
+        @paths[d.to_sym][:files] << f
+      end
+    end
+  end
 end
+
 
 puts <<~EOF
   REPORT:
   =======
   Directory Searched:   #{@loc}
   For files ending in:  #{@exts.keys.join(',')}
+
+
 
 EOF
 
@@ -66,6 +86,20 @@ EOF
 end
 
 puts <<~EOF
+
+
+EOF
+
+@paths.keys.each do |k|
+  puts <<~EOF
+    #{k}                                           #{@paths[k][:files].count}
+  EOF
+end
+
+puts <<~EOF
+
+
+
   Be advised: Other files beyond the above likely do exist in the searched
   directory.
 
